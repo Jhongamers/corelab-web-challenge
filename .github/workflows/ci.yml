@@ -23,22 +23,22 @@ jobs:
 
       # Frontend Linting
       - name: Install Frontend Dependencies
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: npm ci
 
       - name: Frontend Lint
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: |
           npm run lint || echo "Lint script not found"
           npm run format:check || echo "Format check script not found"
 
       # Backend Linting
       - name: Install Backend Dependencies
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         run: npm ci
 
       - name: Backend Lint
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         run: |
           npm run lint || echo "Lint script not found"
           npm run format:check || echo "Format check script not found"
@@ -73,11 +73,11 @@ jobs:
 
       # Frontend Tests
       - name: Install Frontend Dependencies
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: npm ci
 
       - name: Run Frontend Tests
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: |
           npm test -- --coverage --watchAll=false --passWithNoTests
         env:
@@ -85,11 +85,11 @@ jobs:
 
       # Backend Tests
       - name: Install Backend Dependencies
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         run: npm ci
 
       - name: Run Backend Tests
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         env:
           NODE_ENV: test
           DB_CONNECTION: pg
@@ -134,11 +134,11 @@ jobs:
 
       # Build Frontend
       - name: Install Frontend Dependencies
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: npm ci
 
       - name: Build Frontend
-        working-directory: ./corelab-web-challenge
+        working-directory: corelab-web-challenge
         run: npm run build
 
       - name: Upload Frontend Build
@@ -149,11 +149,11 @@ jobs:
 
       # Build Backend (se necessário)
       - name: Install Backend Dependencies
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         run: npm ci
 
       - name: Build Backend
-        working-directory: ./corelab-api-challenge
+        working-directory: corelab-api-challenge
         run: |
           npm run build || echo "No build script found"
 
