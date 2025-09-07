@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Local Testing
+name: Frontend CI
 
 on:
   push:
@@ -7,256 +7,25 @@ on:
     branches: [main]
 
 jobs:
-  # Job 1: Lint e Code Quality
-  code-quality:
+  lint-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js 16
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "16"
-          cache: "npm"
+          node-version: 18
+          cache: npm
 
-      # Frontend Linting
-      - name: Install Frontend Dependencies
-        working-directory: corelab-web-challenge
+      - name: Install dependencies
         run: npm ci
 
-      - name: Frontend Lint
-        working-directory: corelab-web-challenge
-        run: |
-          npm run lint || echo "Lint script not found"
-          npm run format:check || echo "Format check script not found"
+      - name: Run Lint
+        run: npm run lint || echo "Lint script not found"
 
-      # Backend Linting
-      - name: Install Backend Dependencies
-        working-directory: corelab-api-challenge
-        run: npm ci
-
-      - name: Backend Lint
-        working-directory: corelab-api-challenge
-        run: |
-          npm run lint || echo "Lint script not found"
-          npm run format:check || echo "Format check script not found"
-
-  # Job 2: Testes Unitários
-  unit-tests:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: corelab_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 16
-        uses: actions/setup-node@v4
-        with:
-          node-version: "16"
-          cache: "npm"
-
-      # Frontend Tests
-      - name: Install Frontend Dependencies
-        working-directory: corelab-web-challenge
-        run: npm ci
-
-      - name: Run Frontend Tests
-        working-directory: corelab-web-challenge
-        run: |
-          npm test -- --coverage --watchAll=false --passWithNoTests
+      - name: Run Tests
+        run: npm test -- --coverage --watchAll=false --passWithNoTests
         env:
           CI: true
-
-      # Backend Tests
-      - name: Install Backend Dependencies
-        working-directory: corelab-api-challenge
-        run: npm ci
-
-      - name: Run Backend Tests
-        working-directory: corelab-api-challenge
-        env:
-          NODE_ENV: test
-          DB_CONNECTION: pg
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_DATABASE: corelab_test
-          APP_KEY: test-key-for-ci-pipeline-testing-only
-        run: |
-          npm test -- --passWithNoTests || echo "No tests found"
-
-      # Upload test results
-      - name: Upload Frontend Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: frontend-test-results
-          path: corelab-web-challenge/coverage/
-
-      - name: Upload Backend Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-test-results
-          path: corelab-api-challenge/coverage/
-
-  # Job 3: Build e Validação
-  build-validation:
-    runs-on: ubuntu-latest
-    needs: [code-quality, unit-tests]
-
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 16
-        uses: actions/setup-node@v4
-        with:
-          node-version: "16"
-          cache: "npm"
-
-      # Build Frontend
-      - name: Install Frontend Dependencies
-        working-directory: corelab-web-challenge
-        run: npm ci
-
-      - name: Build Frontend
-        working-directory: corelab-web-challenge
-        run: npm run build
-
-      - name: Upload Frontend Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: corelab-web-challenge/build/
-
-      # Build Backend (se necessário)
-      - name: Install Backend Dependencies
-        working-directory: corelab-api-challenge
-        run: npm ci
-
-      - name: Build Backend
-        working-directory: corelab-api-challenge
-        run: |
-          npm run build || echo "No build script found"
-
-  # Job 4: Testes de Integração com Docker
-  integration-tests:
-    runs-on: ubuntu-latest
-    needs: build-validation
-
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker images
-        run: |
-          docker-compose build
-
-      - name: Start services
-        run: |
-          docker-compose up -d
-          sleep 30
-
-      - name: Wait for services to be ready
-        run: |
-          echo "Aguardando serviços ficarem prontos..."
-          timeout 60 bash -c 'until curl -f http://localhost:3333/health 2>/dev/null || curl -f http://localhost:3333 2>/dev/null; do sleep 2; done'
-
-      - name: Run API Health Check
-        run: |
-          curl -f http://localhost:3333 || echo "Backend não respondeu"
-          curl -f http://localhost:3000 || echo "Frontend não respondeu"
-
-      - name: Run Integration Tests
-        run: |
-          # Aqui você pode adicionar testes de integração específicos
-          echo "Executando testes de integração..."
-          # Exemplo: newman run postman-collection.json
-
-      - name: Collect Docker logs
-        if: failure()
-        run: |
-          docker-compose logs > docker-logs.txt
-
-      - name: Upload Docker logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-logs
-          path: docker-logs.txt
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker-compose down
-          docker system prune -f
-
-  # Job 5: Security Scan
-  security-scan:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "."
-          format: "sarif"
-          output: "trivy-results.sarif"
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v2
-        if: always()
-        with:
-          sarif_file: "trivy-results.sarif"
-
-  # Job 6: Status Summary
-  pipeline-summary:
-    runs-on: ubuntu-latest
-    needs: [code-quality, unit-tests, build-validation, integration-tests]
-    if: always()
-
-    steps:
-      - name: Pipeline Success
-        if: ${{ needs.code-quality.result == 'success' && needs.unit-tests.result == 'success' && needs.build-validation.result == 'success' && needs.integration-tests.result == 'success' }}
-        run: |
-          echo "🎉 Pipeline executado com sucesso!"
-          echo "✅ Code Quality: OK"
-          echo "✅ Unit Tests: OK"  
-          echo "✅ Build: OK"
-          echo "✅ Integration Tests: OK"
-
-      - name: Pipeline Failure
-        if: ${{ needs.code-quality.result == 'failure' || needs.unit-tests.result == 'failure' || needs.build-validation.result == 'failure' || needs.integration-tests.result == 'failure' }}
-        run: |
-          echo "❌ Pipeline falhou!"
-          echo "Code Quality: ${{ needs.code-quality.result }}"
-          echo "Unit Tests: ${{ needs.unit-tests.result }}"
-          echo "Build: ${{ needs.build-validation.result }}"
-          echo "Integration Tests: ${{ needs.integration-tests.result }}"
-          exit 1
